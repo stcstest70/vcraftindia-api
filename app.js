@@ -10,17 +10,17 @@ import express from "express";
 const app = express();
 
 connectDB();
-// const corsOptions = {
-//     origin: true,
-//     credentials: true,
-//   };
-  // app.use(cors(corsOptions));
-  app.use(function(req, res, next) {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    next();
-  });
-app.use(cors());
+const allowedOrigins = [
+  "https://vci-vcraftindia.vercel.app",
+  "https://vci-vcraftindia-git-main-stcstest70-gmailcom.vercel.app",
+  "https://vci-vcraftindia-1ml76f9fg-stcstest70-gmailcom.vercel.app"
+];
+
+// Allow requests from the specified origins and enable credentials
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+}));
 import coolieParser from 'cookie-parser'
 
 app.use(coolieParser());

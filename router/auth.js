@@ -171,7 +171,7 @@ router.post('/login', async function (req, res) {
                 }
                 else {
                     token = await user.generateAuthToken();
-
+                    // console.log(token);
                     res.cookie("UserToken", token, {
                         expires: new Date(Date.now() + 18000000),
                         httpOnly: true
