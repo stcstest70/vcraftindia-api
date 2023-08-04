@@ -9,6 +9,8 @@ import express from "express";
 
 const app = express();
 
+app.set('trust proxy', 1);
+
 connectDB();
 const allowedOrigins = [
   "https://vci-vcraftindia.vercel.app",
