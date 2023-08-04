@@ -175,7 +175,9 @@ router.post('/login', async function (req, res) {
                     res.cookie("UserToken", token, {
                         expires: new Date(Date.now() + 18000000),
                         httpOnly: true,
-                        secure: true // Set this to true for HTTPS
+                        secure: true, // Set this to true for HTTPS
+                        domain: "vercel.app", // Set to the common base domain
+                        path: "/"
                     });
                     res.status(201).json({ message: "user signIn successfully" });
                 }
