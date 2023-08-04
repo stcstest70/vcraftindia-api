@@ -174,7 +174,8 @@ router.post('/login', async function (req, res) {
                     // console.log(token);
                     res.cookie("UserToken", token, {
                         expires: new Date(Date.now() + 18000000),
-                        httpOnly: true
+                        httpOnly: true,
+                        secure: true // Set this to true for HTTPS
                     });
                     res.status(201).json({ message: "user signIn successfully" });
                 }
