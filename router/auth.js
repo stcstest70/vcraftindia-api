@@ -17,6 +17,7 @@ import dotenv from "dotenv";
 import { braintreeTokenController, braintreePaymentController } from "./GatewayController.js";
 import OrderModel from "../model/OrderModel.js";
 import { log } from "console";
+import jwt from 'jsonwebtoken'
 
 dotenv.config();
 
@@ -49,16 +50,24 @@ dotenv.config();
 //FOR payment PX website
 router.get("/braintree/token", braintreeTokenController);
 
-router.post("/braintree/payment", authenticate, braintreePaymentController);
+router.post("/braintree/payment", braintreePaymentController);
 
 //for px website
-router.get('/checkCookiePresent', authenticate, async function (req, res) {
-    if (req.rootUser) {
-        return res.status(206).json({ error: "UserToken is Present" });
-    }
-    else {
-        return res.status(406).json({ error: "UserToken is not Present" });
-    }
+router.post('/checkCookiePresent', async function (req, res) {
+    try {
+        const userToken = req.body.userToken;
+        // console.log(userToken);
+        const verifyToken = jwt.verify(userToken, process.env.SECRET_KEY);
+        const rootUser = await UserModal.findOne({_id:verifyToken._id, "tokens.token":userToken });
+        if(!rootUser){
+            return res.status(406).message('User Not logged in');
+        }else{
+            return res.status(206).json({ user: rootUser });
+        }
+      } catch (error) {
+        console.log("Error occurred while processing the request:", error);
+         return res.status(500).json({ error: "Internal server error" });
+      }
 })
 
 router.get('/getCategoryPX', async function (req, res) {
@@ -91,7 +100,7 @@ router.get('/getTrendingProductPX', async function (req, res) {
 })
 
 router.post('/register', async function (req, res) {
-    const { name, email, phone, address,city, pincode, password, currentPageURL} = req.body;
+    const { name, email, phone, address,city, pincode, password } = req.body;
 
     if (!name || !email || !phone || !address || !city || !pincode || !password) {
         return res.status(422).json({ error: "There is an error" });
@@ -111,7 +120,7 @@ router.post('/register', async function (req, res) {
                 userId: user._id,
                 token: crypto.randomBytes(32).toString("hex"),
             }).save();
-            const url = `${currentPageURL}/users/${user.id}/verify/${token.token}`;
+            const url = `${process.env.BASE_URL}users/${user.id}/verify/${token.token}`;
             await sendEmail(user.email, "Verify Email", url);
 
 
@@ -148,7 +157,7 @@ router.get("/user/:id/resetPassword/:token/", async (req, res) => {
 router.post('/login', async function (req, res) {
     try {
         let token;
-        const { email, password, currentPageURL } = req.body;
+        const { email, password } = req.body;
 
         if (!email || !password) {
             return res.status(400).json({ error: "pls fill the data" });
@@ -164,22 +173,19 @@ router.post('/login', async function (req, res) {
                             userId: user._id,
                             token: crypto.randomBytes(32).toString("hex"),
                         }).save();
-                        const url = `${currentPageURL}/users/${user.id}/verify/${token.token}`;
+                        const url = `${process.env.BASE_URL}users/${user.id}/verify/${token.token}`;
                         await sendEmail(user.email, "Verify Email", url);
                     }
                     return res.status(400).send({ message: "An Email sent to your account please verify" });
                 }
                 else {
                     token = await user.generateAuthToken();
-                    // console.log(token);
-                    res.cookie("UserToken", token, {
-                        expires: new Date(Date.now() + 18000000),
-                        httpOnly: true,
-                        secure: true, // Set this to true for HTTPS
-                        domain: "vci-vcraftindia.vercel.app", // Set to the common base domain
-                        path: "/"
-                    });
-                    res.status(201).json({ message: "user signIn successfully" });
+
+                    // res.cookie("UserToken", token, {
+                    //     expires: new Date(Date.now() + 18000000),
+                    //     httpOnly: true
+                    // });
+                    return res.status(201).json({ token: token });
                 }
             }
             else {
@@ -199,7 +205,7 @@ router.post('/login', async function (req, res) {
 router.post('/forgotPassword', async function (req, res) {
     try {
         let token;
-        const { email, currentPageURL } = req.body;
+        const { email } = req.body;
         if (!email) {
             return res.status(400).json({ error: "pls fill the data" });
         }
@@ -213,7 +219,7 @@ router.post('/forgotPassword', async function (req, res) {
                 }).save();
             }
 
-            const url = `${currentPageURL}/users/${user.id}/resetPassword/${token.token}`;
+            const url = `${process.env.BASE_URL}users/${user.id}/resetPassword/${token.token}`;
             await sendEmail(user.email, "Reset Password Link", url);
             return res.status(201).json({ error: "An email sent, please verify" });
         } else {
@@ -235,10 +241,10 @@ router.post('/resetPassword', async function (req, res) {
     return res.status(201).json({ message: "Password Updated Successfully" });
 });
 
-router.get('/logout', (req, res) => {
-    res.clearCookie('UserToken', { path: '/' });
-    res.status(200).send('User Logout');
-});
+// router.get('/logout', (req, res) => {
+//     res.clearCookie('UserToken', { path: '/' });
+//     res.status(200).send('User Logout');
+// });
 
 router.post('/updateProfileInfo', async function (req, res) {
     const { id, name, address, contact } = req.body;
@@ -269,34 +275,74 @@ router.post('/deleteAccount', async function (req, res) {
 })
 
 
-router.get('/getOrderDetails', authenticate, async (req, res) => {
-    const id = req.userID.toString();
+router.post('/getOrderDetails', async (req, res) => {
+    const userToken = req.body.userToken;
     // const data =await OrderModel.find({ buyer: { $in: [id] } }).exec();
+    const verifyToken = jwt.verify(userToken, process.env.SECRET_KEY);
+    const rootUser = await UserModal.findOne({_id:verifyToken._id, "tokens.token":userToken });
+    // console.log(rootUser._id);
+    const id = rootUser._id;
     const query = OrderModel.find({ buyer: { $in: [id] } }).sort({ createdAt: -1 });
     // console.log(query.getQuery());
     const data = await query.exec();
     res.send(data);
 });
 
-router.get('/getUserData', authenticate, (req, res) => {
-    res.send(req.rootUser);
+router.post('/getUserData', async function (req, res) {
+    try {
+        const userToken = req.body.userToken;
+        // console.log(userToken);
+        const verifyToken = jwt.verify(userToken, process.env.SECRET_KEY);
+        const rootUser = await UserModal.findOne({_id:verifyToken._id, "tokens.token":userToken });
+        if(!rootUser){
+            return res.status(401).message('User Not logged in');
+        }else{
+            return res.status(206).json({ user: rootUser });
+        }
+      } catch (error) {
+        console.log("Error occurred while processing the request:", error);
+         return res.status(500).json({ error: "Internal server error" });
+      }
+    // res.send(req.rootUser);
 });
 
 
-router.post('/contact', authenticate, async function (req, res) {
-    try {
-        const { name, email, phone, message } = req.body;
+// router.post('/contact', async function (req, res) {
+//     try {
+//         const { name, email, phone, message } = req.body;
 
-        if (!name || !email || !phone || !message) {
+//         if (!name || !email || !phone || !message) {
+//             // console.log("error in contact form");
+//             return res.status(401).json({ error: "pls fill all fields of contact form" });
+//         }
+
+//         const userContact = await UserModal.findOne({ _id: req.userID });
+
+//         if (userContact) {
+//             const userMessage = await userContact.addMessageToDB(name, email, phone, message);
+//             await userContact.save();
+//             res.status(201).json({ message: "contact application submitted successfully" });
+//         }
+//     }
+//     catch (err) {
+//         console.log(err);
+//     }
+// });
+router.post('/contact', async function (req, res) {
+    try {
+        const { name, email, phone, message, userToken } = req.body;
+
+        if (!name || !email || !phone || !message || !userToken) {
             // console.log("error in contact form");
             return res.status(401).json({ error: "pls fill all fields of contact form" });
         }
+        const verifyToken = jwt.verify(userToken, process.env.SECRET_KEY);
+        const rootUser = await UserModal.findOne({_id:verifyToken._id, "tokens.token":userToken });
+        // const userContact = await UserModal.findOne({ _id: req.userID });
 
-        const userContact = await UserModal.findOne({ _id: req.userID });
-
-        if (userContact) {
-            const userMessage = await userContact.addMessageToDB(name, email, phone, message);
-            await userContact.save();
+        if (rootUser) {
+            const userMessage = await rootUser.addMessageToDB(name, email, phone, message);
+            await rootUser.save();
             res.status(201).json({ message: "contact application submitted successfully" });
         }
     }
@@ -315,13 +361,15 @@ router.get('/getProdByID_SP_PX/:id', async function (req, res) {
     res.send(data);
 })
 
-router.post('/addReview', authenticate, async function (req, res) {
-    const { prodId, reviewerName, rating, reviewtitle, reviewDescription } = req.body;
-    if (!prodId || !reviewerName || !rating || !reviewtitle || !reviewDescription) {
+router.post('/addReview', async function (req, res) {
+    const { prodId, reviewerName, rating, reviewtitle, reviewDescription, userToken } = req.body;
+    if (!prodId || !reviewerName || !rating || !reviewtitle || !reviewDescription || !userToken) {
         console.log("error in review form");
         return res.status(405).json({ error: "pls fill all fields of contact form" });
     }
-    const reviewerId = req.userID;
+    const verifyToken = jwt.verify(userToken, process.env.SECRET_KEY);
+    const rootUser = await UserModal.findOne({_id:verifyToken._id, "tokens.token":userToken });
+    const reviewerId = rootUser._id;
     if (!reviewerId) {
         res.status(401).json({ message: "User not logged in" });
     }
@@ -333,11 +381,14 @@ router.post('/addReview', authenticate, async function (req, res) {
     }
 })
 
-router.post('/changeAdress', authenticate, async function (req, res) {
+router.post('/changeAdress', async function (req, res) {
     var data = {
         address: req.body.address
     }
-    UserModal.findByIdAndUpdate(req.userID, { $set: data }, { new: true }, function (err, data) {
+    const userToken = req.body.userToken;
+    const verifyToken = jwt.verify(userToken, process.env.SECRET_KEY);
+    const rootUser = await UserModal.findOne({_id:verifyToken._id, "tokens.token":userToken });
+    UserModal.findByIdAndUpdate(rootUser._id, { $set: data }, { new: true }, function (err, data) {
         if (err) {
             res.status(500);
             res.send(err);

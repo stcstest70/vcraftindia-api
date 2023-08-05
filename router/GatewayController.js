@@ -1,6 +1,8 @@
 import braintree from "braintree";
 import OrderModel from "../model/OrderModel.js";
 import dotenv from "dotenv";
+import jwt from 'jsonwebtoken'
+import UserModal from "../model/userSchema.js";
 
 dotenv.config({ path: '../config.env' });
 
@@ -33,7 +35,10 @@ export const braintreePaymentController = async (req, res) => {
       privateKey: process.env.BRAINTREE_PRIVATE_KEY,
     });
     const { nonce, cart } = req.body;
-
+    const userToken = req.body.userToken;
+        
+    const verifyToken = jwt.verify(userToken, process.env.SECRET_KEY);
+    const rootUser = await UserModal.findOne({_id:verifyToken._id, "tokens.token":userToken });
     let total = 0;
 
     for (let i = 0; i < cart.length; i++) {
@@ -61,7 +66,7 @@ export const braintreePaymentController = async (req, res) => {
           const order = new OrderModel({
             products: productQtyArray,
             payment: result,
-            buyer: req.userID,
+            buyer: rootUser._id,
           }).save();
           return res.status(201).send('Payment Successful');
           // res.json({ ok: true });
