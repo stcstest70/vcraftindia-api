@@ -13,7 +13,9 @@ app.set('trust proxy', 1);
 
 connectDB();
 const allowedOrigins = [
-  "https://vci-vcraftindia.vercel.app",
+  
+  "http://localhost:3000",
+  "https://vci-vcraftindia.,ercel.app",
   "https://vci-vcraftindia-git-main-stcstest70-gmailcom.vercel.app",
   "https://vci-vcraftindia-1ml76f9fg-stcstest70-gmailcom.vercel.app"
 ];
