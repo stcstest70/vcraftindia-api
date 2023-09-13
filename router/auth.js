@@ -100,7 +100,7 @@ router.get('/getTrendingProductPX', async function (req, res) {
 })
 
 router.post('/register', async function (req, res) {
-    const { name, email, phone, address,city, pincode, password } = req.body;
+    const { name, email, phone, address,city, pincode, password, currentPageURL } = req.body;
 
     if (!name || !email || !phone || !address || !city || !pincode || !password) {
         return res.status(422).json({ error: "There is an error" });
@@ -120,7 +120,7 @@ router.post('/register', async function (req, res) {
                 userId: user._id,
                 token: crypto.randomBytes(32).toString("hex"),
             }).save();
-            const url = `${process.env.BASE_URL}users/${user.id}/verify/${token.token}`;
+            const url = `${currentPageURL}/users/${user.id}/verify/${token.token}`;
             await sendEmail(user.email, "Verify Email", url);
 
 
@@ -157,7 +157,7 @@ router.get("/user/:id/resetPassword/:token/", async (req, res) => {
 router.post('/login', async function (req, res) {
     try {
         let token;
-        const { email, password } = req.body;
+        const { email, password,currentPageURL } = req.body;
 
         if (!email || !password) {
             return res.status(400).json({ error: "pls fill the data" });
@@ -173,7 +173,7 @@ router.post('/login', async function (req, res) {
                             userId: user._id,
                             token: crypto.randomBytes(32).toString("hex"),
                         }).save();
-                        const url = `${process.env.BASE_URL}users/${user.id}/verify/${token.token}`;
+                        const url = `${currentPageURL}/users/${user.id}/verify/${token.token}`;
                         await sendEmail(user.email, "Verify Email", url);
                     }
                     return res.status(400).send({ message: "An Email sent to your account please verify" });
@@ -219,7 +219,7 @@ router.post('/forgotPassword', async function (req, res) {
                 }).save();
             }
 
-            const url = `${process.env.BASE_URL}users/${user.id}/resetPassword/${token.token}`;
+            const url = `${currentPageURL}/users/${user.id}/resetPassword/${token.token}`;
             await sendEmail(user.email, "Reset Password Link", url);
             return res.status(201).json({ error: "An email sent, please verify" });
         } else {
