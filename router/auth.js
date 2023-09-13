@@ -57,6 +57,9 @@ router.post('/checkCookiePresent', async function (req, res) {
     try {
         const userToken = req.body.userToken;
         // console.log(userToken);
+        if (!userToken || userToken.trim() === '') {
+            return res.status(400).json({ error: 'UserToken is empty or missing' });
+          }
         const verifyToken = jwt.verify(userToken, process.env.SECRET_KEY);
         const rootUser = await UserModal.findOne({_id:verifyToken._id, "tokens.token":userToken });
         if(!rootUser){
